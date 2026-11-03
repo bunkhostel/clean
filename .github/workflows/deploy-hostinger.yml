@@ -1,0 +1,56 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: hostinger-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      FTP_SERVER: ${{ secrets.FTP_SERVER }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR || '/public_html/maintenance.bunkhostel.in/' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Check FTP configuration
+        id: ftp
+        run: |
+          if [ -z "$FTP_SERVER" ] || [ -z "$FTP_USERNAME" ] || [ -z "$FTP_PASSWORD" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Hostinger FTP secrets are not set; skipping upload."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload dist to Hostinger
+        if: steps.ftp.outputs.configured == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ env.FTP_SERVER }}
+          username: ${{ env.FTP_USERNAME }}
+          password: ${{ env.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          # Hostinger's shared FTPS certificate does not always match the FTP hostname.
+          security: loose
+          local-dir: ./dist/
+          server-dir: ${{ env.FTP_SERVER_DIR }}
+          exclude: |
+            **/.ftp-deploy-sync-state.json
