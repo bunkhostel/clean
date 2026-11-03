@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Bunk Hostel - Housekeeping Checklist & Admin Audit Portal</title>
+    <meta name="description" content="Unified multi-property housekeeping and audit portal supporting Landlopers, Tapovan, Delhi, and Rishikesh with bilingual audio checklists, visual validation, and proof of work uploads." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-stone-100 text-stone-900 font-sans antialiased selection:bg-emerald-200">
+    <div id="root"></div>
+    <div
+      id="boot-error"
+      style="display:none;margin:16px;padding:16px;border:1px solid #fecaca;border-radius:12px;background:#fef2f2;color:#7f1d1d;font-family:-apple-system,system-ui,sans-serif;font-size:14px;line-height:1.5"
+    >
+      <strong>The housekeeping app could not start on this device.</strong>
+      <div id="boot-error-detail" style="margin-top:6px;font-size:13px"></div>
+    </div>
+    <noscript>
+      <div style="margin:16px;padding:16px;border-radius:12px;background:#fef2f2;color:#7f1d1d;font-family:sans-serif">
+        This app needs JavaScript enabled. Please turn on JavaScript in your browser settings and reload.
+      </div>
+    </noscript>
+    <script>
+      (function () {
+        function showBootError(message) {
+          var box = document.getElementById('boot-error');
+          var detail = document.getElementById('boot-error-detail');
+          if (!box || !detail) return;
+          detail.textContent = message;
+          box.style.display = 'block';
+        }
+
+        window.addEventListener('error', function (event) {
+          showBootError(event.message || 'Unknown JavaScript error');
+        });
+        window.addEventListener('unhandledrejection', function (event) {
+          var reason = event.reason;
+          showBootError((reason && (reason.message || String(reason))) || 'Unhandled promise rejection');
+        });
+
+        window.setTimeout(function () {
+          var root = document.getElementById('root');
+          if (root && root.children.length === 0) {
+            showBootError(
+              'Nothing was rendered. If you opened this file directly from disk, serve it over http(s) instead, or use the single-file build.'
+            );
+          }
+        }, 8000);
+
+        document.addEventListener('DOMContentLoaded', function () {
+          var root = document.getElementById('root');
+          if (!root || typeof MutationObserver === 'undefined') return;
+          var observer = new MutationObserver(function () {
+            if (root.children.length > 0) {
+              var box = document.getElementById('boot-error');
+              if (box) box.style.display = 'none';
+              observer.disconnect();
+            }
+          });
+          observer.observe(root, { childList: true });
+        });
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
