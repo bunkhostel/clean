@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Building2,
   Calendar,
@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { PropertyId, Language, ShiftInfo, LocationOption, FormType } from '../types';
 import { PROPERTIES } from '../data/propertyData';
+import { getApprovedUserNames } from '../utils/userStorage';
 import { speakText } from '../utils/speechUtils';
 
 interface StaffAreaSelectionViewProps {
@@ -45,6 +46,17 @@ export const StaffAreaSelectionView: React.FC<StaffAreaSelectionViewProps> = ({
 }) => {
   const isHindi = language === 'hi-IN';
   const property = PROPERTIES[propertyId] || PROPERTIES.landlopers;
+
+  // Inspectors are the approved accounts in User Management, not a static roster.
+  const staffOptions = useMemo(() => getApprovedUserNames(), []);
+
+  useEffect(() => {
+    if (staffOptions.length > 0 && !staffOptions.includes(shiftInfo.checkedBy)) {
+      onUpdateShiftInfo({ ...shiftInfo, checkedBy: staffOptions[0] });
+    }
+    // Only re-sync when the roster or the current inspector changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staffOptions, shiftInfo.checkedBy]);
 
   // Selected sub-tab for room organization if many rooms (e.g. Tapovan, Rishikesh, Delhi)
   const [tapovanFloorFilter, setTapovanFloorFilter] = useState<string>('all');
@@ -279,9 +291,13 @@ export const StaffAreaSelectionView: React.FC<StaffAreaSelectionViewProps> = ({
           <button
             type="button"
             onClick={() => {
-              const speech = isHindi
-                ? `कर्मचारी चुनें। उपलब्ध स्टाफ: ${property.staff.join(', ')}।`
-                : `Select staff member. Available staff: ${property.staff.join(', ')}.`;
+              const speech = staffOptions.length
+                ? isHindi
+                  ? `कर्मचारी चुनें। उपलब्ध स्टाफ: ${staffOptions.join(', ')}।`
+                  : `Select staff member. Available staff: ${staffOptions.join(', ')}.`
+                : isHindi
+                  ? 'कोई स्वीकृत कर्मचारी उपलब्ध नहीं है। कृपया व्यवस्थापक से खाता बनवाएं।'
+                  : 'No approved staff accounts yet. Ask an administrator to create one.';
               speakText(speech, language, 'speak-staff-options', speechSpeed);
             }}
             className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 transition"
@@ -302,18 +318,30 @@ export const StaffAreaSelectionView: React.FC<StaffAreaSelectionViewProps> = ({
                 id="select-staff-member"
                 value={shiftInfo.checkedBy}
                 onChange={handleStaffChange}
-                className="w-full bg-stone-50 border-2 border-stone-200 focus:border-amber-500 focus:bg-white rounded-2xl px-3.5 py-3 text-stone-900 font-bold text-sm outline-none transition appearance-none cursor-pointer"
+                disabled={staffOptions.length === 0}
+                className="w-full bg-stone-50 border-2 border-stone-200 focus:border-amber-500 focus:bg-white rounded-2xl px-3.5 py-3 text-stone-900 font-bold text-sm outline-none transition appearance-none cursor-pointer disabled:cursor-not-allowed disabled:text-stone-400"
               >
-                {property.staff.map((staffName) => (
-                  <option key={staffName} value={staffName}>
-                    {staffName} ({property.nameEn})
-                  </option>
-                ))}
+                {staffOptions.length === 0 ? (
+                  <option value="">No approved staff accounts yet</option>
+                ) : (
+                  staffOptions.map((staffName) => (
+                    <option key={staffName} value={staffName}>
+                      {staffName}
+                    </option>
+                  ))
+                )}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-stone-500 font-bold text-xs">
                 ▼
               </div>
             </div>
+            {staffOptions.length === 0 && (
+              <p className="text-[11px] font-semibold text-red-600">
+                {isHindi
+                  ? 'पहले व्यवस्थापक द्वारा कर्मचारी खाता बनवाएं।'
+                  : 'Ask an administrator to create an employee account first.'}
+              </p>
+            )}
           </div>
 
           {/* Shift Timing */}

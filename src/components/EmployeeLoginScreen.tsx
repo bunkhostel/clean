@@ -349,7 +349,7 @@ export const EmployeeLoginScreen: React.FC<EmployeeLoginScreenProps> = ({
                         id="reg-name-input"
                         value={regName}
                         onChange={(e) => setRegName(e.target.value)}
-                        placeholder="e.g. Aakash Verma"
+                        placeholder="Employee full name"
                         className="w-full pl-10 pr-4 py-2.5 bg-stone-950/80 border border-stone-700 rounded-xl text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium transition"
                       />
                     </div>
@@ -369,7 +369,7 @@ export const EmployeeLoginScreen: React.FC<EmployeeLoginScreenProps> = ({
                         id="reg-email-input"
                         value={regEmail}
                         onChange={(e) => setRegEmail(e.target.value)}
-                        placeholder="e.g. aakash.verma@bunkhostel.in"
+                        placeholder="name@bunkhostel.in"
                         className="w-full pl-10 pr-4 py-2.5 bg-stone-950/80 border border-stone-700 rounded-xl text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium transition"
                       />
                     </div>

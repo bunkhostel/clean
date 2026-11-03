@@ -9,7 +9,6 @@ export const PROPERTIES: Record<PropertyId, PropertyDef> = {
     taglineHi: 'रिवरसाइड एवं हिल व्यू प्रॉपर्टी',
     iconName: 'Compass',
     badgeColor: 'bg-emerald-500 text-white border-emerald-600',
-    staff: ['Jasvir', 'Rajeshwari', 'Yashodha', 'Jubin'],
     dorms: ['D1', 'D2', 'D3', 'D4'],
     privateRooms: ['R1', 'R2', 'R3', 'R4'],
     commonAreas: [
@@ -27,7 +26,6 @@ export const PROPERTIES: Record<PropertyId, PropertyDef> = {
     taglineHi: 'योग एवं माउंटेन वैली स्टे',
     iconName: 'Mountain',
     badgeColor: 'bg-amber-500 text-white border-amber-600',
-    staff: ['Jasvir', 'Rajeshwari', 'Yashodha', 'Jubin', 'Ajay'],
     privateRooms: [
       '101', '102', '103',
       '201', '202', '203',
@@ -57,7 +55,6 @@ export const PROPERTIES: Record<PropertyId, PropertyDef> = {
     taglineHi: 'कैपिटल सिटी बंक सेंटर',
     iconName: 'Building',
     badgeColor: 'bg-indigo-500 text-white border-indigo-600',
-    staff: ['Shouaib', 'Rohit', 'Sureandar'],
     dorms: ['B1', 'B2', 'B3', 'B4', 'B6', 'B7'],
     privateRooms: ['D1', 'D2', 'D3', 'D4', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8'],
     commonAreas: [
@@ -77,7 +74,6 @@ export const PROPERTIES: Record<PropertyId, PropertyDef> = {
     taglineHi: 'पवित्र गंगा एवं शांत बंक प्रवास',
     iconName: 'Palmtree',
     badgeColor: 'bg-teal-500 text-white border-teal-600',
-    staff: ['Jasvir', 'Rajeshwari', 'Yashodha', 'Jubin'],
     dorms: ['107', '207', 'Dorm Hall'],
     privateRooms: [
       '101', '102', '103', '104', '105', '106',

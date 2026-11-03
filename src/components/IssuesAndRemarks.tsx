@@ -256,7 +256,7 @@ export const IssuesAndRemarks: React.FC<IssuesAndRemarksProps> = ({
           type="text"
           value={report.actionTakenBy}
           onChange={(e) => onChange({ ...report, actionTakenBy: e.target.value })}
-          placeholder={isHindi ? 'उदा. जसवीर, राजेश्वरी, शोएब...' : 'e.g. Jasvir, Rajeshwari, Shouaib...'}
+          placeholder={isHindi ? 'कर्मचारी का नाम' : 'Staff member name'}
           className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3.5 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 font-medium"
         />
       </div>

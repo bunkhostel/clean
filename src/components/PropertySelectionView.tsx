@@ -5,7 +5,6 @@ import {
   Building2,
   Palmtree,
   Volume2,
-  Users,
   DoorOpen,
   Layers,
   ArrowRight,
@@ -132,10 +131,6 @@ export const PropertySelectionView: React.FC<PropertySelectionViewProps> = ({
                     <DoorOpen className="w-3.5 h-3.5 text-stone-600" />
                     <span>4 Dorms (D1–D4) + 4 Rooms (R1–R4)</span>
                   </div>
-                  <div className="flex items-center gap-1.5 bg-stone-100 px-2.5 py-1 rounded-lg">
-                    <Users className="w-3.5 h-3.5 text-stone-600" />
-                    <span>4 Staff: Jasvir, Rajeshwari, Yashodha, Jubin</span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -204,10 +199,6 @@ export const PropertySelectionView: React.FC<PropertySelectionViewProps> = ({
                     <Layers className="w-3.5 h-3.5 text-stone-600" />
                     <span>6 Floors & Common Areas</span>
                   </div>
-                  <div className="flex items-center gap-1.5 bg-stone-100 px-2.5 py-1 rounded-lg">
-                    <Users className="w-3.5 h-3.5 text-stone-600" />
-                    <span>5 Staff: Jasvir, Rajeshwari, Yashodha, Jubin, Ajay</span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -271,10 +262,6 @@ export const PropertySelectionView: React.FC<PropertySelectionViewProps> = ({
                   <div className="flex items-center gap-1.5 bg-stone-100 px-2.5 py-1 rounded-lg">
                     <DoorOpen className="w-3.5 h-3.5 text-stone-600" />
                     <span>6 Dorms (B1–B7) + 12 Rooms (D1–P8)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-stone-100 px-2.5 py-1 rounded-lg">
-                    <Users className="w-3.5 h-3.5 text-stone-600" />
-                    <span>3 Staff: Shouaib, Rohit, Sureandar</span>
                   </div>
                 </div>
               </div>
@@ -343,10 +330,6 @@ export const PropertySelectionView: React.FC<PropertySelectionViewProps> = ({
                   <div className="flex items-center gap-1.5 bg-stone-100 px-2.5 py-1 rounded-lg">
                     <Layers className="w-3.5 h-3.5 text-stone-600" />
                     <span>4 Floors, Yoga Hall & Cafe</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-stone-100 px-2.5 py-1 rounded-lg">
-                    <Users className="w-3.5 h-3.5 text-stone-600" />
-                    <span>4 Staff: Jasvir, Rajeshwari, Yashodha, Jubin</span>
                   </div>
                 </div>
               </div>

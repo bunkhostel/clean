@@ -2,165 +2,78 @@ import { UserRecord, UserRole, UserStatus, AdminAuthSession } from '../types';
 import { hasPermission, migrateLegacyRole } from './rbac';
 
 /**
- * Requirement 1: Default Admin Account
- * Name: Mohit
- * Email: admin@bunkhostel.in
- * Password: admin@123
- * Role: Admin
- * Status: Approved
+ * The single bootstrap account: the first administrator needed to create everyone else.
+ * Change this password immediately after the first sign-in.
  */
 export const DEFAULT_ADMIN_CREDENTIALS = {
-  name: 'Mohit',
+  name: 'Administrator',
   email: 'admin@bunkhostel.in',
-  username: 'admin@bunkhostel.in',
+  username: 'admin',
   password: 'admin@123',
   role: 'admin' as UserRole,
   status: 'Approved' as UserStatus,
 };
 
-export const SUPER_ADMIN_CREDENTIALS = DEFAULT_ADMIN_CREDENTIALS;
-
 /**
- * Checks if a user record or session represents the Default Admin (Mohit / admin@bunkhostel.in)
+ * Checks if a user record or session represents the bootstrap admin account.
  */
 export function isDefaultAdminAccount(
   user: { email?: string; username?: string; id?: string; name?: string } | null | undefined
 ): boolean {
   if (!user) return false;
   const targetEmail = DEFAULT_ADMIN_CREDENTIALS.email.toLowerCase();
-  const targetUsername = 'mohit';
   const matchesEmail = user.email?.toLowerCase() === targetEmail || user.username?.toLowerCase() === targetEmail;
-  const matchesUsername = user.username?.toLowerCase() === targetUsername;
+  const matchesUsername = user.username?.toLowerCase() === DEFAULT_ADMIN_CREDENTIALS.username;
   const matchesId = user.id === 'USR-001';
   return Boolean(matchesEmail || matchesUsername || matchesId);
 }
 
-const USER_STORAGE_KEY = 'bunk_hostel_user_records_v2';
+const USER_STORAGE_KEY = 'bunk_hostel_user_records_v3';
+// Earlier builds seeded demo employees and reports; drop those stores on upgrade.
+const LEGACY_STORAGE_KEYS = [
+  'bunk_hostel_user_records_v2',
+  'bunk_hostel_user_records',
+];
+if (typeof window !== 'undefined') {
+  LEGACY_STORAGE_KEYS.forEach((key) => {
+    try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
+  });
+}
+
 const SESSION_AUTH_TOKEN_KEY = 'bunk_session_auth_token';
 const SESSION_AUTH_USER_KEY = 'bunk_session_auth_user';
 
 export const INITIAL_USER_RECORDS: UserRecord[] = [
   {
     id: 'USR-001',
-    name: 'Mohit',
-    username: 'admin@bunkhostel.in',
-    email: 'admin@bunkhostel.in',
-    phone: '+91 98765 43210',
-    password: 'admin@123',
+    name: DEFAULT_ADMIN_CREDENTIALS.name,
+    username: DEFAULT_ADMIN_CREDENTIALS.username,
+    email: DEFAULT_ADMIN_CREDENTIALS.email,
+    phone: '',
+    password: DEFAULT_ADMIN_CREDENTIALS.password,
     role: 'admin',
     status: 'Approved',
-    createdAt: '2026-01-01',
-    lastLogin: '2026-08-30 08:30',
-    approvedAt: '2026-01-01',
+    createdAt: new Date().toISOString().split('T')[0],
     approvedBy: 'System',
   },
-  {
-    id: 'USR-002',
-    name: 'Subhash Sharma',
-    username: 'subhash_mgr',
-    email: 'subhash@bunkhostel.in',
-    phone: '+91 98123 45678',
-    password: 'Subhash@2026!',
-    role: 'manager',
-    status: 'Approved',
-    createdAt: '2026-02-15',
-    lastLogin: '2026-08-29 16:45',
-    approvedAt: '2026-02-15',
-    approvedBy: 'Mohit',
-  },
-  {
-    id: 'USR-003',
-    name: 'Anjali Nair',
-    username: 'anjali_fo',
-    email: 'anjali@bunkhostel.in',
-    phone: '+91 99880 11224',
-    password: 'Anjali@2026!',
-    role: 'front_office',
-    status: 'Approved',
-    createdAt: '2026-02-20',
-    lastLogin: '2026-08-30 06:50',
-    approvedAt: '2026-02-20',
-    approvedBy: 'Mohit',
-  },
-  {
-    id: 'USR-004',
-    name: 'Jasvir Singh',
-    username: 'jasvir_hk',
-    email: 'jasvir@bunkhostel.in',
-    phone: '+91 98987 65432',
-    password: 'Jasvir@2026!',
-    role: 'housekeeping',
-    status: 'Approved',
-    createdAt: '2026-03-01',
-    lastLogin: '2026-08-30 07:15',
-    approvedAt: '2026-03-01',
-    approvedBy: 'Mohit',
-  },
-  {
-    id: 'USR-005',
-    name: 'Rajeshwari Sharma',
-    username: 'rajeshwari_hk',
-    email: 'rajeshwari@bunkhostel.in',
-    phone: '+91 97112 33445',
-    password: 'Rajeshwari@2026!',
-    role: 'housekeeping',
-    status: 'Approved',
-    createdAt: '2026-03-10',
-    lastLogin: '2026-08-29 18:20',
-    approvedAt: '2026-03-10',
-    approvedBy: 'Subhash Sharma',
-  },
-  // Initial Pending Registration Requests for Admin Demonstration
-  {
-    id: 'REQ-101',
-    name: 'Aakash Verma',
-    username: 'aakash.v',
-    email: 'aakash.verma@gmail.com',
-    phone: '+91 98234 11223',
-    password: 'Password@123',
-    role: 'housekeeping',
-    status: 'Pending Approval',
-    createdAt: '2026-08-30',
-  },
-  {
-    id: 'REQ-102',
-    name: 'Pooja Rawat',
-    username: 'pooja.r',
-    email: 'pooja.rawat@yahoo.com',
-    phone: '+91 94567 89012',
-    password: 'Pooja@Pass2026',
-    role: 'housekeeping',
-    status: 'Pending Approval',
-    createdAt: '2026-08-31',
-  },
-  {
-    id: 'REQ-103',
-    name: 'Vikram Mehta',
-    username: 'vikram_m',
-    email: 'vikram.mehta@gmail.com',
-    phone: '+91 91234 56780',
-    password: 'Vikram@2026!',
-    role: 'housekeeping',
-    status: 'Approved',
-    createdAt: '2026-04-05',
-    lastLogin: '2026-08-28 14:10',
-    approvedAt: '2026-04-05',
-    approvedBy: 'Mohit',
-  }
 ];
 
 /**
  * Loads user records from localStorage, upgrading roles written by earlier builds.
  */
+const cloneSeedUsers = (): UserRecord[] => INITIAL_USER_RECORDS.map((u) => ({ ...u }));
+
 export function getStoredUsers(): UserRecord[] {
-  if (typeof window === 'undefined') return INITIAL_USER_RECORDS;
+  if (typeof window === 'undefined') return cloneSeedUsers();
   try {
     const raw = localStorage.getItem(USER_STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(INITIAL_USER_RECORDS));
-      return INITIAL_USER_RECORDS;
+      const seed = cloneSeedUsers();
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(seed));
+      return seed;
     }
     const parsed: UserRecord[] = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error('Corrupt user store');
     let changed = false;
 
     const migrated = parsed.map((u) => {
@@ -172,11 +85,9 @@ export function getStoredUsers(): UserRecord[] {
       return u;
     });
 
-    const hasDefaultAdmin = migrated.some(
-      u => (u.email?.toLowerCase() === DEFAULT_ADMIN_CREDENTIALS.email.toLowerCase() || u.username === DEFAULT_ADMIN_CREDENTIALS.username)
-    );
+    const hasDefaultAdmin = migrated.some((u) => isDefaultAdminAccount(u));
     if (!hasDefaultAdmin) {
-      migrated.unshift(INITIAL_USER_RECORDS[0]);
+      migrated.unshift({ ...INITIAL_USER_RECORDS[0] });
       changed = true;
     }
     if (changed) {
@@ -184,8 +95,19 @@ export function getStoredUsers(): UserRecord[] {
     }
     return migrated;
   } catch {
-    return INITIAL_USER_RECORDS;
+    const seed = cloneSeedUsers();
+    try { localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(seed)); } catch { /* storage unavailable */ }
+    return seed;
   }
+}
+
+/** Names of approved employees, used for the inspector dropdown instead of a static roster. */
+export function getApprovedUserNames(): string[] {
+  const names = getStoredUsers()
+    .filter((u) => u.status === 'Approved' || u.status === 'Active')
+    .map((u) => u.name.trim())
+    .filter(Boolean);
+  return Array.from(new Set(names));
 }
 
 /**
@@ -409,8 +331,20 @@ export function getActiveAdminSession(): AdminAuthSession | null {
     const userRaw = sessionStorage.getItem(SESSION_AUTH_USER_KEY);
     if (!token || !userRaw) return null;
     const session = JSON.parse(userRaw) as AdminAuthSession;
-    // Sessions created before the role hierarchy existed get upgraded on read.
-    session.role = migrateLegacyRole(session.role);
+
+    // A session is only valid while its account still exists and can still sign in.
+    const account = getStoredUsers().find(
+      (u) => u.email?.toLowerCase() === session.email?.toLowerCase() || u.username === session.username
+    );
+    if (!account || (account.status !== 'Approved' && account.status !== 'Active')) {
+      destroyAdminSession();
+      return null;
+    }
+
+    session.role = migrateLegacyRole(account.role);
+    session.name = account.name;
+    session.username = account.username;
+    session.email = account.email;
     return session;
   } catch {
     return null;
@@ -463,10 +397,8 @@ export function authenticateUser(
   // Check default admin shortcut
   if (
     (cleanId === DEFAULT_ADMIN_CREDENTIALS.email.toLowerCase() ||
-     cleanId === 'admin' ||
-     cleanId === 'mohit' ||
-     cleanId === 'mohit_admin') &&
-    (cleanPass === DEFAULT_ADMIN_CREDENTIALS.password || cleanPass === 'Mohit@Secure2026!')
+     cleanId === DEFAULT_ADMIN_CREDENTIALS.username.toLowerCase()) &&
+    cleanPass === DEFAULT_ADMIN_CREDENTIALS.password
   ) {
     const token = `AUTH_TOKEN_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const session: AdminAuthSession = {

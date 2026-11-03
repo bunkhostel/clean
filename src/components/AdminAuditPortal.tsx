@@ -9,27 +9,16 @@ import {
   Clock,
   User,
   Users,
-  Plus,
-  RotateCcw,
   ChevronRight,
-  Code,
-  Eye,
   Building2,
-  Calendar,
   LogOut,
   ClipboardCheck,
 } from 'lucide-react';
 import { AuditReportRecord, AuditStatus, AdminAuthSession, AppRoute, Permission } from '../types';
-import {
-  getStoredAuditReports,
-  saveAuditReports,
-  INITIAL_MOCK_REPORTS,
-} from '../utils/auditStorage';
+import { getStoredAuditReports, saveAuditReports } from '../utils/auditStorage';
 import { hasPermission, ROLE_LABELS } from '../utils/rbac';
 import { AdminReportDetailModal } from './AdminReportDetailModal';
-import { AdminSingleFileExportModal } from './AdminSingleFileExportModal';
 import { UserManagementView } from './UserManagementView';
-import { StandaloneUserManagementModal } from './StandaloneUserManagementModal';
 
 type PortalTab = 'reports' | 'logs' | 'analytics' | 'users';
 
@@ -66,8 +55,6 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
   const [reports, setReports] = useState<AuditReportRecord[]>(() => getStoredAuditReports());
   const [selectedReport, setSelectedReport] = useState<AuditReportRecord | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
-  const [isUserExportModalOpen, setIsUserExportModalOpen] = useState<boolean>(false);
 
   const can = (permission: Permission) => hasPermission(currentSession.role, permission);
   const activeTab: PortalTab = TAB_FOR_ROUTE[route] || 'reports';
@@ -82,70 +69,6 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
     const updatedList = reports.map((r) => (r.id === updated.id ? updated : r));
     setReports(updatedList);
     saveAuditReports(updatedList);
-  };
-
-  // Generate random new shift submission
-  const handleGenerateMockSubmission = () => {
-    const now = new Date();
-    const areas = [
-      { name: '107, 207 & Dorm hall', form: 'Dorm', id: 'dorm_hall' },
-      { name: 'Yoga Hall', form: 'Yoga Hall', id: 'yoga_hall' },
-      { name: 'Cafe (Indoor or Outdoor)', form: 'Cafe/Restaurant', id: 'cafe' },
-      { name: 'Reception', form: 'Reception', id: 'reception' },
-      { name: 'Common Washroom', form: 'Common Washroom', id: 'common_washroom' },
-      { name: 'Staircase', form: 'Staircase', id: 'staircase' },
-    ];
-    const staffList = [
-      { name: 'Jasvir Singh', id: 'HK-001' },
-      { name: 'Rajeshwari Sharma', id: 'HK-002' },
-      { name: 'Sunita Devi', id: 'HK-003' },
-      { name: 'Vikram Mehta', id: 'HK-004' },
-    ];
-    const chosenArea = areas[Math.floor(Math.random() * areas.length)];
-    const chosenStaff = staffList[Math.floor(Math.random() * staffList.length)];
-    const reportId = `RPT-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const newRecord: AuditReportRecord = {
-      id: reportId,
-      submittedAt: now.toISOString(),
-      date: now.toISOString().split('T')[0],
-      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      locationId: chosenArea.id,
-      locationName: chosenArea.name,
-      formName: chosenArea.form,
-      staffName: chosenStaff.name,
-      staffId: chosenStaff.id,
-      shiftTiming: Math.random() > 0.5 ? 'Morning' : 'Evening',
-      status: 'Pending',
-      responseType: 'Cleaned',
-      photoUpload: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
-      tasks: [
-        { id: 't1', tag: 'Area Clean', titleEn: `${chosenArea.name} deep swept and sanitized.`, completed: true, adminVerification: 'unverified' },
-        { id: 't2', tag: 'Disinfection', titleEn: 'High contact touchpoints disinfected with hospital grade spray.', completed: true, adminVerification: 'unverified' },
-        { id: 't3', tag: 'Trash', titleEn: 'Trash bins emptied and new liner installed.', completed: true, adminVerification: 'unverified' },
-        { id: 't4', tag: 'Aroma', titleEn: 'Ventilation and pleasant room fragrance verified.', completed: true, adminVerification: 'unverified' }
-      ],
-      section10: {
-        issuesIdentified: 'None (Standard cleaning completed)',
-        correctiveAction: 'Full checklist protocol followed',
-        actionTakenBy: chosenStaff.name,
-        status: 'Completed',
-        finalRemarks: 'Inspected and ready for guest use.',
-      },
-      adminNotes: '',
-    };
-
-    const updated = [newRecord, ...reports];
-    setReports(updated);
-    saveAuditReports(updated);
-  };
-
-  // Reset database back to default initial mock reports
-  const handleResetDatabase = () => {
-    if (window.confirm('Reset all audit logs and reports back to initial demo data?')) {
-      setReports(INITIAL_MOCK_REPORTS);
-      saveAuditReports(INITIAL_MOCK_REPORTS);
-    }
   };
 
   // Open inspection modal
@@ -180,9 +103,77 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
   const pendingCount = reports.filter((r) => r.status === 'Pending').length;
   const verifiedCount = reports.filter((r) => r.status === 'Verified').length;
   const discrepancyCount = reports.filter((r) => r.status === 'Discrepancy').length;
-  const qualityRate = verifiedCount + discrepancyCount > 0
-    ? Math.round((verifiedCount / (verifiedCount + discrepancyCount)) * 100)
-    : 100;
+  const activeAreaCount = new Set(reports.map((r) => r.locationName)).size;
+  const reviewedCount = verifiedCount + discrepancyCount;
+  const qualityRate = reviewedCount > 0
+    ? Math.round((verifiedCount / reviewedCount) * 100)
+    : null;
+
+  // Analytics are derived from real submissions only.
+  const staffPerformance = useMemo(() => {
+    const grouped = new Map<
+      string,
+      { id: string; name: string; audits: number; verified: number; discrepancy: number; areas: Map<string, number> }
+    >();
+    reports.forEach((r) => {
+      const key = r.staffId && r.staffId !== 'UNASSIGNED' ? r.staffId : r.staffName;
+      const entry = grouped.get(key) || {
+        id: r.staffId || '—',
+        name: r.staffName,
+        audits: 0,
+        verified: 0,
+        discrepancy: 0,
+        areas: new Map<string, number>(),
+      };
+      entry.audits += 1;
+      if (r.status === 'Verified') entry.verified += 1;
+      if (r.status === 'Discrepancy') entry.discrepancy += 1;
+      entry.areas.set(r.locationName, (entry.areas.get(r.locationName) || 0) + 1);
+      grouped.set(key, entry);
+    });
+    return Array.from(grouped.values())
+      .map((e) => {
+        const reviewed = e.verified + e.discrepancy;
+        const topArea = Array.from(e.areas.entries()).sort((a, b) => b[1] - a[1])[0];
+        return {
+          id: e.id,
+          name: e.name,
+          audits: e.audits,
+          reviewed,
+          passRate: reviewed ? Math.round((e.verified / reviewed) * 100) : null,
+          area: topArea ? topArea[0] : '—',
+        };
+      })
+      .sort((a, b) => b.audits - a.audits);
+  }, [reports]);
+
+  const areaCompliance = useMemo(() => {
+    const grouped = new Map<string, { name: string; verified: number; discrepancy: number }>();
+    reports.forEach((r) => {
+      const entry = grouped.get(r.locationId) || { name: r.locationName, verified: 0, discrepancy: 0 };
+      if (r.status === 'Verified') entry.verified += 1;
+      if (r.status === 'Discrepancy') entry.discrepancy += 1;
+      grouped.set(r.locationId, entry);
+    });
+    return Array.from(grouped.values())
+      .map((e) => {
+        const reviewed = e.verified + e.discrepancy;
+        const score = reviewed ? Math.round((e.verified / reviewed) * 100) : null;
+        return {
+          name: e.name,
+          score,
+          status:
+            score === null
+              ? 'Awaiting audit'
+              : score >= 95
+              ? 'Flawless standard'
+              : score >= 90
+              ? 'High standard'
+              : 'Needs attention',
+        };
+      })
+      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  }, [reports]);
 
   return (
     <div className="min-h-screen bg-stone-100 flex flex-col md:flex-row text-stone-900 font-sans">
@@ -289,17 +280,6 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
             <ClipboardCheck className="w-4 h-4 text-amber-400" />
             <span>Open Cleanliness Form</span>
           </button>
-
-          {can('manage_users') && (
-            <button
-              type="button"
-              onClick={() => setIsExportModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-stone-800/60 hover:bg-stone-800 text-stone-400 hover:text-amber-400 text-[11px] font-bold transition"
-            >
-              <Code className="w-3.5 h-3.5" />
-              <span>Export Portal HTML</span>
-            </button>
-          )}
         </div>
 
         {/* Current Auditor Profile */}
@@ -329,7 +309,6 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
         <UserManagementView
           currentSession={currentSession}
           onLogout={onLogout}
-          onOpenCodeExport={() => setIsUserExportModalOpen(true)}
         />
       ) : (
         <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
@@ -351,29 +330,6 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
             </p>
           </div>
 
-          {/* Header Action Buttons — data tools are admin-only */}
-          {can('manage_users') && (
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={handleGenerateMockSubmission}
-                className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-amber-50 hover:border-amber-300 border border-stone-200 text-stone-800 text-xs font-bold flex items-center gap-1.5 transition"
-                title="Simulate a new staff submission coming in"
-              >
-                <Plus className="w-4 h-4 text-amber-600" />
-                <span>Simulate Shift</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleResetDatabase}
-                className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-600 hover:text-stone-900 transition"
-                title="Reset to Initial Demo Data"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-            </div>
-          )}
         </header>
 
         {/* Content Body Container */}
@@ -387,7 +343,9 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
               </span>
               <div className="mt-2 flex items-baseline justify-between">
                 <span className="text-2xl font-black text-stone-900">{totalCount}</span>
-                <span className="text-xs font-bold text-stone-500">7 Active Areas</span>
+                <span className="text-xs font-bold text-stone-500">
+                  {activeAreaCount} {activeAreaCount === 1 ? 'Active Area' : 'Active Areas'}
+                </span>
               </div>
             </div>
 
@@ -430,8 +388,12 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
                 Hygiene Quality Score
               </span>
               <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black text-amber-400">{qualityRate}%</span>
-                <span className="text-xs font-bold text-stone-300">Target ≥95%</span>
+                <span className="text-2xl font-black text-amber-400">
+                  {qualityRate === null ? '—' : `${qualityRate}%`}
+                </span>
+                <span className="text-xs font-bold text-stone-300">
+                  {qualityRate === null ? 'No audits yet' : 'Target ≥95%'}
+                </span>
               </div>
             </div>
           </div>
@@ -659,34 +621,43 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
                     <span>Staff Housekeeping Performance</span>
                   </h3>
                   <div className="space-y-3">
-                    {[
-                      { name: 'Rajeshwari Sharma', id: 'HK-002', audits: 8, passRate: 100, area: 'Yoga Hall & Reception' },
-                      { name: 'Jasvir Singh', id: 'HK-001', audits: 12, passRate: 94, area: '107, 207 & Dorm hall' },
-                      { name: 'Sunita Devi', id: 'HK-003', audits: 9, passRate: 91, area: 'Common Washroom & Floors' },
-                      { name: 'Vikram Mehta', id: 'HK-004', audits: 6, passRate: 83, area: 'Cafe & Outdoor Lounge' },
-                    ].map((staff) => (
-                      <div
-                        key={staff.id}
-                        className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 flex items-center justify-between gap-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-amber-500 text-stone-950 font-black flex items-center justify-center text-sm">
-                            {staff.name[0]}
-                          </div>
-                          <div>
-                            <div className="font-bold text-stone-900 text-xs sm:text-sm">
-                              {staff.name} <span className="font-mono text-stone-400 text-xs">({staff.id})</span>
-                            </div>
-                            <div className="text-xs text-stone-500 font-medium">{staff.area}</div>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="text-sm font-black text-emerald-700">{staff.passRate}% Pass</div>
-                          <div className="text-[11px] text-stone-500 font-medium">{staff.audits} Shifts Audited</div>
-                        </div>
+                    {staffPerformance.length === 0 ? (
+                      <div className="py-8 text-center space-y-1">
+                        <p className="text-sm font-bold text-stone-700">No staff activity yet</p>
+                        <p className="text-xs text-stone-500">
+                          Staff performance appears here after the first cleanliness form is submitted.
+                        </p>
                       </div>
-                    ))}
+                    ) : (
+                      staffPerformance.map((staff) => (
+                        <div
+                          key={`${staff.id}-${staff.name}`}
+                          className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 flex items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-amber-500 text-stone-950 font-black flex items-center justify-center text-sm">
+                              {staff.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="font-bold text-stone-900 text-xs sm:text-sm">
+                                {staff.name}{' '}
+                                <span className="font-mono text-stone-400 text-xs">({staff.id})</span>
+                              </div>
+                              <div className="text-xs text-stone-500 font-medium">{staff.area}</div>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <div className="text-sm font-black text-emerald-700">
+                              {staff.passRate === null ? 'Awaiting audit' : `${staff.passRate}% Pass`}
+                            </div>
+                            <div className="text-[11px] text-stone-500 font-medium">
+                              {staff.audits} {staff.audits === 1 ? 'Shift' : 'Shifts'} Audited
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -697,32 +668,40 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
                     <span>Hostel Area Compliance Score</span>
                   </h3>
                   <div className="space-y-3">
-                    {[
-                      { area: 'Yoga Hall', score: 100, status: 'Flawless Standard' },
-                      { area: '107, 207 & Dorm hall', score: 96, status: 'High Standard' },
-                      { area: 'Reception & Guest Lounge', score: 95, status: 'High Standard' },
-                      { area: 'Common Washrooms', score: 92, status: 'Needs Frequent Soap Check' },
-                      { area: 'Cafe & Outdoor Patio', score: 85, status: 'Sticky Table Issues' },
-                    ].map((loc) => (
-                      <div key={loc.area} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs font-bold">
-                          <span className="text-stone-800">{loc.area}</span>
-                          <span className="text-amber-700 font-black">{loc.score}%</span>
-                        </div>
-                        <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden border border-stone-200">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              loc.score >= 95
-                                ? 'bg-emerald-500'
-                                : loc.score >= 90
-                                ? 'bg-amber-500'
-                                : 'bg-red-500'
-                            }`}
-                            style={{ width: `${loc.score}%` }}
-                          />
-                        </div>
+                    {areaCompliance.length === 0 ? (
+                      <div className="py-8 text-center space-y-1">
+                        <p className="text-sm font-bold text-stone-700">No area audits yet</p>
+                        <p className="text-xs text-stone-500">
+                          Area compliance scores are calculated from submitted checklists.
+                        </p>
                       </div>
-                    ))}
+                    ) : (
+                      areaCompliance.map((loc) => (
+                        <div key={loc.name} className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <span className="text-stone-800">{loc.name}</span>
+                            <span className="text-amber-700 font-black">
+                              {loc.score === null ? '—' : `${loc.score}%`}
+                            </span>
+                          </div>
+                          <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden border border-stone-200">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                loc.score === null
+                                  ? 'bg-stone-300'
+                                  : loc.score >= 95
+                                  ? 'bg-emerald-500'
+                                  : loc.score >= 90
+                                  ? 'bg-amber-500'
+                                  : 'bg-red-500'
+                              }`}
+                              style={{ width: `${loc.score ?? 0}%` }}
+                            />
+                          </div>
+                          <div className="text-[11px] text-stone-500 font-medium">{loc.status}</div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -744,17 +723,6 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
         onUpdateReport={handleUpdateReport}
       />
 
-      {/* Standalone Admin Single File Export Modal */}
-      <AdminSingleFileExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-      />
-
-      {/* Standalone User Management Export Modal */}
-      <StandaloneUserManagementModal
-        isOpen={isUserExportModalOpen}
-        onClose={() => setIsUserExportModalOpen(false)}
-      />
     </div>
   );
 };

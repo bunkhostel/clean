@@ -21,7 +21,7 @@ import {
   stopSpeaking,
 } from './utils/speechUtils';
 import { createAuditReportFromStaffSubmission } from './utils/auditStorage';
-import { getActiveAdminSession, clearAdminSession } from './utils/userStorage';
+import { getActiveAdminSession, clearAdminSession, getApprovedUserNames } from './utils/userStorage';
 import { canAccessRoute, getDefaultRoute } from './utils/rbac';
 import { Header } from './components/Header';
 import { PropertySelectionView } from './components/PropertySelectionView';
@@ -29,7 +29,6 @@ import { StaffAreaSelectionView } from './components/StaffAreaSelectionView';
 import { ChecklistSectionView } from './components/ChecklistSectionView';
 import { IssuesAndRemarks } from './components/IssuesAndRemarks';
 import { ShiftSuccessModal } from './components/ShiftSuccessModal';
-import { SingleFileExportModal } from './components/SingleFileExportModal';
 import { AdminAuditPortal } from './components/AdminAuditPortal';
 import { EmployeeLoginScreen } from './components/EmployeeLoginScreen';
 
@@ -70,7 +69,7 @@ export default function App() {
       date: today,
       roomArea: '',
       shiftTiming: 'Morning',
-      checkedBy: PROPERTIES.landlopers.staff[0] || 'Jasvir',
+      checkedBy: session?.name || '',
     };
   });
 
@@ -78,14 +77,13 @@ export default function App() {
   const [report, setReport] = useState<IssueReport>({
     issuesIdentified: '',
     correctiveAction: '',
-    actionTakenBy: PROPERTIES.landlopers.staff[0] || 'Jasvir',
+    actionTakenBy: session?.name || '',
     status: 'Completed',
     finalRemarks: '',
   });
 
   // Modals
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
 
   // Speech status listener
   useEffect(() => {
@@ -136,7 +134,10 @@ export default function App() {
     const prop = PROPERTIES[propId];
     setSelectedPropertyId(propId);
 
-    const initialStaff = prop.staff[0] || 'Staff';
+    // Prefer the signed-in employee; otherwise fall back to the first approved account.
+    const staffOptions = getApprovedUserNames();
+    const initialStaff =
+      session?.name && staffOptions.includes(session.name) ? session.name : staffOptions[0] || '';
     setShiftInfo((prev) => ({
       ...prev,
       propertyId: propId,
@@ -565,13 +566,6 @@ export default function App() {
         selectedLocation={selectedLocation}
         completedSection={activeSection}
         report={report}
-        language={language}
-      />
-
-      {/* Standalone Single-File HTML Code Export Modal */}
-      <SingleFileExportModal
-        isOpen={isCodeModalOpen}
-        onClose={() => setIsCodeModalOpen(false)}
         language={language}
       />
     </div>

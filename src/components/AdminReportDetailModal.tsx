@@ -35,15 +35,13 @@ export const AdminReportDetailModal: React.FC<AdminReportDetailModalProps> = ({
 
   const [currentReport, setCurrentReport] = useState<AuditReportRecord>(report);
   const [adminNotes, setAdminNotes] = useState<string>(report.adminNotes || '');
-  const [adminAuditorName, setAdminAuditorName] = useState<string>(
-    report.auditedBy || 'Rohit (Operations Lead)'
-  );
+  const [adminAuditorName, setAdminAuditorName] = useState<string>(report.auditedBy || '');
 
   // Sync state if report changes
   React.useEffect(() => {
     setCurrentReport(report);
     setAdminNotes(report.adminNotes || '');
-    setAdminAuditorName(report.auditedBy || 'Rohit (Operations Lead)');
+    setAdminAuditorName(report.auditedBy || '');
   }, [report]);
 
   // Toggle individual task verification: pass <-> fail <-> unverified

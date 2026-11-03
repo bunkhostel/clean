@@ -3,10 +3,8 @@ import {
   Users,
   UserPlus,
   Search,
-  Filter,
   ShieldCheck,
   Shield,
-  KeyRound,
   Edit,
   Trash2,
   CheckCircle2,
@@ -19,16 +17,12 @@ import {
   LogOut,
   Sparkles,
   AlertTriangle,
-  Code,
-  Building2,
   Clock,
   User,
   Mail,
   Phone,
   UserCheck,
   UserX,
-  ChevronDown,
-  ShieldAlert,
 } from 'lucide-react';
 import { UserRecord, UserRole, AdminAuthSession } from '../types';
 import {
@@ -48,7 +42,6 @@ import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_ORDER } from '../utils/rbac';
 interface UserManagementViewProps {
   currentSession: AdminAuthSession;
   onLogout: () => void;
-  onOpenCodeExport?: () => void;
 }
 
 const ROLES: UserRole[] = ROLE_ORDER;
@@ -71,7 +64,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [roleFilter, setRoleFilter] = useState<'All' | UserRole>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Approved' | 'Active' | 'Inactive'>('All');
 
-  // Check if current logged in admin is the Default Admin (Mohit)
+  // Check if current logged in admin is the bootstrap Default Admin
   const isCurrentSessionDefaultAdmin = useMemo(() => {
     return isDefaultAdminAccount(currentSession);
   }, [currentSession]);
@@ -92,7 +85,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [formName, setFormName] = useState('');
   const [formUsername, setFormUsername] = useState('');
   const [formPassword, setFormPassword] = useState('');
-  const [formRole, setFormRole] = useState<UserRole>('Housekeeping Staff');
+  const [formRole, setFormRole] = useState<UserRole>('housekeeping');
   const [formStatus, setFormStatus] = useState<'Approved' | 'Active' | 'Inactive'>('Approved');
   const [formEmail, setFormEmail] = useState('');
   const [formPhone, setFormPhone] = useState('');
@@ -158,7 +151,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   // Handle Approve Click (Requirement 4)
   const handleOpenApproveModal = (user: UserRecord) => {
     setApprovalTarget(user);
-    setSelectedRoleForApproval(user.role || 'Housekeeping Staff');
+    setSelectedRoleForApproval(user.role || 'housekeeping');
   };
 
   // Confirm Approval (Requirement 4)
@@ -1125,7 +1118,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                   type="text"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  placeholder="e.g. Jasvir Singh"
+                  placeholder="Employee full name"
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
                 />
               </div>
@@ -1140,7 +1133,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                     type="email"
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
-                    placeholder="jasvir@bunkhostel.in"
+                    placeholder="name@bunkhostel.in"
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 focus:ring-2 focus:ring-amber-500 focus:outline-none"
                   />
                 </div>
@@ -1171,7 +1164,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                     value={formUsername}
                     onChange={(e) => setFormUsername(e.target.value)}
                     disabled={Boolean(editingUser && isDefaultAdminAccount(editingUser))}
-                    placeholder="jasvir_hk"
+                    placeholder="username"
                     className={`w-full pl-8 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 font-mono focus:ring-2 focus:ring-amber-500 focus:outline-none ${
                       editingUser && isDefaultAdminAccount(editingUser) ? 'opacity-70 cursor-not-allowed' : ''
                     }`}

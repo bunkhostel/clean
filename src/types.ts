@@ -50,7 +50,6 @@ export interface PropertyDef {
   taglineHi: string;
   iconName: string;
   badgeColor: string;
-  staff: string[];
   dorms?: string[];
   privateRooms: string[];
   commonAreas: Array<{
