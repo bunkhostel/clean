@@ -1,12 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
-  ShieldCheck,
   ClipboardList,
   History,
   BarChart3,
-  Settings,
   Search,
-  Filter,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -14,36 +11,56 @@ import {
   Users,
   Plus,
   RotateCcw,
-  Sparkles,
   ChevronRight,
   Code,
-  Download,
   Eye,
   Building2,
   Calendar,
-  Smartphone,
   LogOut,
+  ClipboardCheck,
 } from 'lucide-react';
-import { AuditReportRecord, AuditStatus, AppMode, AdminAuthSession } from '../types';
+import { AuditReportRecord, AuditStatus, AdminAuthSession, AppRoute, Permission } from '../types';
 import {
   getStoredAuditReports,
   saveAuditReports,
   INITIAL_MOCK_REPORTS,
 } from '../utils/auditStorage';
+import { hasPermission, ROLE_LABELS } from '../utils/rbac';
 import { AdminReportDetailModal } from './AdminReportDetailModal';
 import { AdminSingleFileExportModal } from './AdminSingleFileExportModal';
 import { UserManagementView } from './UserManagementView';
 import { StandaloneUserManagementModal } from './StandaloneUserManagementModal';
 
+type PortalTab = 'reports' | 'logs' | 'analytics' | 'users';
+
+const TAB_FOR_ROUTE: Record<string, PortalTab> = {
+  dashboard: 'reports',
+  'daily-reports': 'reports',
+  'audit-logs': 'logs',
+  'quality-scores': 'analytics',
+  'user-management': 'users',
+};
+
+const ROUTE_FOR_TAB: Record<PortalTab, AppRoute> = {
+  reports: 'daily-reports',
+  logs: 'audit-logs',
+  analytics: 'quality-scores',
+  users: 'user-management',
+};
+
 interface AdminAuditPortalProps {
-  onSwitchToStaffMode: () => void;
   currentSession: AdminAuthSession;
+  route: AppRoute;
+  onNavigate: (route: AppRoute) => void;
+  onOpenCleanlinessForm: () => void;
   onLogout: () => void;
 }
 
 export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
-  onSwitchToStaffMode,
   currentSession,
+  route,
+  onNavigate,
+  onOpenCleanlinessForm,
   onLogout,
 }) => {
   const [reports, setReports] = useState<AuditReportRecord[]>(() => getStoredAuditReports());
@@ -52,8 +69,10 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [isUserExportModalOpen, setIsUserExportModalOpen] = useState<boolean>(false);
 
+  const can = (permission: Permission) => hasPermission(currentSession.role, permission);
+  const activeTab: PortalTab = TAB_FOR_ROUTE[route] || 'reports';
+
   // Filters & State
-  const [activeTab, setActiveTab] = useState<'reports' | 'logs' | 'analytics' | 'users' | 'settings'>('reports');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'All' | AuditStatus>('All');
   const [shiftFilter, setShiftFilter] = useState<'All' | 'Morning' | 'Evening'>('All');
@@ -180,109 +199,107 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
                 Bunk Hostel
               </h1>
               <p className="text-[11px] text-stone-400 font-bold uppercase tracking-wider mt-1">
-                Admin Audit Portal
+                Employee Portal
               </p>
             </div>
           </div>
         </div>
 
-        {/* Navigation Items */}
+        {/* Navigation Items — filtered by the signed-in role's permissions */}
         <nav className="p-3 flex-1 space-y-1">
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
-              activeTab === 'reports'
-                ? 'bg-amber-500 text-stone-950 shadow font-black'
-                : 'text-stone-300 hover:bg-stone-800 hover:text-white'
-            }`}
-          >
-            <ClipboardList className="w-4 h-4" />
-            <span>Daily Reports</span>
-            {pendingCount > 0 && (
-              <span
-                className={`ml-auto text-[10px] font-black px-2 py-0.5 rounded-full ${
-                  activeTab === 'reports'
-                    ? 'bg-stone-950 text-amber-400'
-                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                }`}
-              >
-                {pendingCount}
+          {can('view_daily_reports') && (
+            <button
+              onClick={() => onNavigate('daily-reports')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
+                activeTab === 'reports'
+                  ? 'bg-amber-500 text-stone-950 shadow font-black'
+                  : 'text-stone-300 hover:bg-stone-800 hover:text-white'
+              }`}
+            >
+              <ClipboardList className="w-4 h-4" />
+              <span>Daily Reports</span>
+              {pendingCount > 0 && (
+                <span
+                  className={`ml-auto text-[10px] font-black px-2 py-0.5 rounded-full ${
+                    activeTab === 'reports'
+                      ? 'bg-stone-950 text-amber-400'
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                  }`}
+                >
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {can('view_audit_logs') && (
+            <button
+              onClick={() => onNavigate('audit-logs')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
+                activeTab === 'logs'
+                  ? 'bg-amber-500 text-stone-950 shadow font-black'
+                  : 'text-stone-300 hover:bg-stone-800 hover:text-white'
+              }`}
+            >
+              <History className="w-4 h-4" />
+              <span>Audit History Logs</span>
+            </button>
+          )}
+
+          {can('view_quality_scores') && (
+            <button
+              onClick={() => onNavigate('quality-scores')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
+                activeTab === 'analytics'
+                  ? 'bg-amber-500 text-stone-950 shadow font-black'
+                  : 'text-stone-300 hover:bg-stone-800 hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Staff Quality Score</span>
+            </button>
+          )}
+
+          {can('manage_users') && (
+            <button
+              id="tab-user-management-btn"
+              onClick={() => onNavigate('user-management')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
+                activeTab === 'users'
+                  ? 'bg-amber-500 text-stone-950 shadow font-black'
+                  : 'text-stone-300 hover:bg-stone-800 hover:text-white'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>User Management</span>
+              <span className="ml-auto text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                CRUD
               </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('logs')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
-              activeTab === 'logs'
-                ? 'bg-amber-500 text-stone-950 shadow font-black'
-                : 'text-stone-300 hover:bg-stone-800 hover:text-white'
-            }`}
-          >
-            <History className="w-4 h-4" />
-            <span>Audit History Logs</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
-              activeTab === 'analytics'
-                ? 'bg-amber-500 text-stone-950 shadow font-black'
-                : 'text-stone-300 hover:bg-stone-800 hover:text-white'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Staff Quality Score</span>
-          </button>
-
-          <button
-            id="tab-user-management-btn"
-            onClick={() => setActiveTab('users')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
-              activeTab === 'users'
-                ? 'bg-amber-500 text-stone-950 shadow font-black'
-                : 'text-stone-300 hover:bg-stone-800 hover:text-white'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>User Management</span>
-            <span className="ml-auto text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-              CRUD
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
-              activeTab === 'settings'
-                ? 'bg-amber-500 text-stone-950 shadow font-black'
-                : 'text-stone-300 hover:bg-stone-800 hover:text-white'
-            }`}
-          >
-            <Settings className="w-4 h-4" />
-            <span>Audit Settings</span>
-          </button>
+            </button>
+          )}
         </nav>
 
-        {/* Switch to Staff Mobile App Action */}
+        {/* Cleanliness form access for every role */}
         <div className="p-3 border-t border-stone-800 space-y-2">
           <button
             type="button"
-            onClick={onSwitchToStaffMode}
+            onClick={onOpenCleanlinessForm}
             className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold transition border border-stone-700 shadow-sm"
           >
-            <Smartphone className="w-4 h-4 text-amber-400" />
-            <span>Switch to Staff Checklist</span>
+            <ClipboardCheck className="w-4 h-4 text-amber-400" />
+            <span>Open Cleanliness Form</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setIsExportModalOpen(true)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-stone-800/60 hover:bg-stone-800 text-stone-400 hover:text-amber-400 text-[11px] font-bold transition"
-          >
-            <Code className="w-3.5 h-3.5" />
-            <span>Export Portal HTML</span>
-          </button>
+          {can('manage_users') && (
+            <button
+              type="button"
+              onClick={() => setIsExportModalOpen(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-stone-800/60 hover:bg-stone-800 text-stone-400 hover:text-amber-400 text-[11px] font-bold transition"
+            >
+              <Code className="w-3.5 h-3.5" />
+              <span>Export Portal HTML</span>
+            </button>
+          )}
         </div>
 
         {/* Current Auditor Profile */}
@@ -293,7 +310,7 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
             </div>
             <div className="min-w-0">
               <div className="text-xs font-bold text-white truncate">{currentSession.name}</div>
-              <div className="text-[10px] text-amber-400 font-medium truncate">{currentSession.role}</div>
+              <div className="text-[10px] text-amber-400 font-medium truncate">{ROLE_LABELS[currentSession.role]}</div>
             </div>
           </div>
           <button
@@ -321,10 +338,9 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-black text-stone-900 tracking-tight">
-                {activeTab === 'reports' && 'Daily Housekeeping Audit Portal'}
+                {activeTab === 'reports' && 'Daily Reports & Audit Dashboard'}
                 {activeTab === 'logs' && 'Historical Verified Audits & Logs'}
                 {activeTab === 'analytics' && 'Staff Quality & Inspection Analytics'}
-                {activeTab === 'settings' && 'Hostel Area & Audit Configuration'}
               </h2>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
                 Live Data
@@ -335,27 +351,29 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
             </p>
           </div>
 
-          {/* Header Action Buttons */}
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleGenerateMockSubmission}
-              className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-amber-50 hover:border-amber-300 border border-stone-200 text-stone-800 text-xs font-bold flex items-center gap-1.5 transition"
-              title="Simulate a new staff submission coming in"
-            >
-              <Plus className="w-4 h-4 text-amber-600" />
-              <span>Simulate Shift</span>
-            </button>
+          {/* Header Action Buttons — data tools are admin-only */}
+          {can('manage_users') && (
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleGenerateMockSubmission}
+                className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-amber-50 hover:border-amber-300 border border-stone-200 text-stone-800 text-xs font-bold flex items-center gap-1.5 transition"
+                title="Simulate a new staff submission coming in"
+              >
+                <Plus className="w-4 h-4 text-amber-600" />
+                <span>Simulate Shift</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={handleResetDatabase}
-              className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-600 hover:text-stone-900 transition"
-              title="Reset to Initial Demo Data"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={handleResetDatabase}
+                className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-600 hover:text-stone-900 transition"
+                title="Reset to Initial Demo Data"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </header>
 
         {/* Content Body Container */}
@@ -711,25 +729,6 @@ export const AdminAuditPortal: React.FC<AdminAuditPortalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: SETTINGS */}
-          {activeTab === 'settings' && (
-            <div className="bg-white border border-stone-200 rounded-3xl p-6 shadow-sm space-y-6 max-w-2xl">
-              <h3 className="text-base font-black text-stone-900">Hostel Audit Configuration</h3>
-              <div className="space-y-4 text-xs font-medium text-stone-700">
-                <div className="p-4 bg-stone-50 border border-stone-200 rounded-2xl space-y-2">
-                  <h4 className="font-bold text-stone-900 text-sm">Pass/Fail Inspection Rules</h4>
-                  <p className="text-stone-600">
-                    Staff checklists mandate 100% item completion prior to submitting Section 10. Managers must physically audit and verify at least 80% pass score to approve reports.
-                  </p>
-                </div>
-
-                <div className="p-4 bg-stone-50 border border-stone-200 rounded-2xl space-y-2">
-                  <h4 className="font-bold text-stone-900 text-sm">Assigned Lead Auditor</h4>
-                  <p className="text-stone-600">Current Lead: <strong>{currentSession.name} ({currentSession.role})</strong></p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </main>
       )}

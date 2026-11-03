@@ -1,7 +1,8 @@
 import React from 'react';
-import { Volume2, VolumeX, Languages, Sparkles, Building2, CheckCircle2, ShieldCheck, Compass } from 'lucide-react';
-import { Language, PropertyId } from '../types';
+import { Volume2, VolumeX, Languages, Sparkles, Building2, CheckCircle2, LayoutDashboard, LogOut, Compass } from 'lucide-react';
+import { AdminAuthSession, Language, PropertyId } from '../types';
 import { stopSpeaking } from '../utils/speechUtils';
+import { ROLE_LABELS } from '../utils/rbac';
 import { PROPERTIES } from '../data/propertyData';
 
 interface HeaderProps {
@@ -12,7 +13,9 @@ interface HeaderProps {
   completedCount: number;
   totalCount: number;
   isSpeaking: boolean;
-  onSwitchToAdmin: () => void;
+  session: AdminAuthSession;
+  onLogout: () => void;
+  onOpenDashboard?: () => void;
   activePropertyId?: PropertyId | null;
   onChangeProperty?: () => void;
 }
@@ -25,7 +28,9 @@ export const Header: React.FC<HeaderProps> = ({
   completedCount,
   totalCount,
   isSpeaking,
-  onSwitchToAdmin,
+  session,
+  onLogout,
+  onOpenDashboard,
   activePropertyId,
   onChangeProperty,
 }) => {
@@ -92,16 +97,41 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Admin Audit Portal Switcher Button */}
-            <button
-              id="switch-to-admin-portal-btn"
-              onClick={onSwitchToAdmin}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-400 hover:text-amber-300 text-xs font-bold border border-amber-500/30 shadow-sm transition"
-              title="Open Admin Housekeeping Audit Dashboard"
+            {/* Dashboard shortcut for roles with reporting access */}
+            {onOpenDashboard && (
+              <button
+                id="switch-to-dashboard-btn"
+                onClick={onOpenDashboard}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-400 hover:text-amber-300 text-xs font-bold border border-amber-500/30 shadow-sm transition"
+                title="Open dashboard"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </button>
+            )}
+
+            {/* Signed-in employee */}
+            <div
+              className="flex items-center gap-1.5 pl-1 pr-1.5 py-1 rounded-xl bg-stone-800 border border-stone-700"
+              title={`${session.name} • ${ROLE_LABELS[session.role]}`}
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Admin</span>
-            </button>
+              <span className="w-6 h-6 rounded-lg bg-amber-500 text-stone-950 font-black text-[11px] flex items-center justify-center shrink-0">
+                {session.name.charAt(0)}
+              </span>
+              <span className="hidden md:inline text-[11px] font-bold text-stone-200 max-w-[7rem] truncate">
+                {session.name}
+              </span>
+              <button
+                type="button"
+                id="btn-header-logout"
+                onClick={onLogout}
+                className="p-1 rounded-md text-stone-400 hover:text-red-300 hover:bg-stone-700 transition"
+                title="Sign out"
+                aria-label="Sign out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
             {/* Language Switch Button */}
             <div className="flex items-center bg-stone-800 p-0.5 rounded-xl border border-stone-700">

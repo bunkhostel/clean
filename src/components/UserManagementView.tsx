@@ -33,14 +33,17 @@ import {
 import { UserRecord, UserRole, AdminAuthSession } from '../types';
 import {
   getStoredUsers,
-  saveStoredUsers,
   getActiveAdminSession,
   destroyAdminSession,
-  DEFAULT_ADMIN_CREDENTIALS,
   isDefaultAdminAccount,
   approveUserRequest,
   rejectUserRequest,
+  createUserRecord,
+  updateUserRecord,
+  deleteUserRecord,
+  canManageUsers,
 } from '../utils/userStorage';
+import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_ORDER } from '../utils/rbac';
 
 interface UserManagementViewProps {
   currentSession: AdminAuthSession;
@@ -48,13 +51,7 @@ interface UserManagementViewProps {
   onOpenCodeExport?: () => void;
 }
 
-const ROLES: UserRole[] = [
-  'Admin',
-  'Manager',
-  'Housekeeping Supervisor',
-  'Housekeeping Staff',
-  'Maintenance',
-];
+const ROLES: UserRole[] = ROLE_ORDER;
 
 export const UserManagementView: React.FC<UserManagementViewProps> = ({
   currentSession,
@@ -81,7 +78,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   // Approval Modal State
   const [approvalTarget, setApprovalTarget] = useState<UserRecord | null>(null);
-  const [selectedRoleForApproval, setSelectedRoleForApproval] = useState<UserRole>('Housekeeping Staff');
+  const [selectedRoleForApproval, setSelectedRoleForApproval] = useState<UserRole>('housekeeping');
 
   // Rejection Modal State
   const [rejectionTarget, setRejectionTarget] = useState<UserRecord | null>(null);
@@ -112,6 +109,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const showNotification = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 3500);
+  };
+
+  // Only the admin role may create, edit, approve or delete accounts.
+  const canManage = canManageUsers(currentSession);
+  const denyManagement = () => {
+    showNotification('Access denied: only an admin can manage user accounts.', 'error');
   };
 
   // Separate Pending Requests vs Approved Users (Requirement 3)
@@ -149,8 +152,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   // KPIs
   const pendingCount = pendingRequests.length;
   const approvedCount = approvedUsers.length;
-  const adminCount = approvedUsers.filter((u) => u.role === 'Admin' || u.role === 'Super Admin' || u.role === 'Manager').length;
-  const staffCount = approvedUsers.filter((u) => u.role.includes('Housekeeping')).length;
+  const adminCount = approvedUsers.filter((u) => u.role === 'admin' || u.role === 'manager').length;
+  const staffCount = approvedUsers.filter((u) => u.role === 'housekeeping').length;
 
   // Handle Approve Click (Requirement 4)
   const handleOpenApproveModal = (user: UserRecord) => {
@@ -161,11 +164,19 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   // Confirm Approval (Requirement 4)
   const handleConfirmApproval = () => {
     if (!approvalTarget) return;
+    if (!canManage) {
+      denyManagement();
+      return;
+    }
 
-    const res = approveUserRequest(approvalTarget.id, selectedRoleForApproval, currentSession.name);
+    const res = approveUserRequest(currentSession, approvalTarget.id, selectedRoleForApproval, currentSession.name);
+    if (!res.success) {
+      showNotification(res.error || 'Approval failed.', 'error');
+      return;
+    }
     setUsers(res.users);
     showNotification(
-      `Approved ${approvalTarget.name} as ${selectedRoleForApproval}. Account is now active!`
+      `Approved ${approvalTarget.name} as ${ROLE_LABELS[selectedRoleForApproval]}. Account is now active!`
     );
     setApprovalTarget(null);
   };
@@ -173,8 +184,16 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   // Confirm Rejection (Requirement 4)
   const handleConfirmRejection = () => {
     if (!rejectionTarget) return;
+    if (!canManage) {
+      denyManagement();
+      return;
+    }
 
-    const res = rejectUserRequest(rejectionTarget.id);
+    const res = rejectUserRequest(currentSession, rejectionTarget.id);
+    if (!res.success) {
+      showNotification(res.error || 'Rejection failed.', 'error');
+      return;
+    }
     setUsers(res.users);
     showNotification(`Rejected registration request for ${rejectionTarget.name}.`, 'info');
     setRejectionTarget(null);
@@ -182,11 +201,15 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   // Open Create Modal
   const handleOpenCreateModal = () => {
+    if (!canManage) {
+      denyManagement();
+      return;
+    }
     setEditingUser(null);
     setFormName('');
     setFormUsername('');
     setFormPassword(generateRandomPassword());
-    setFormRole('Housekeeping Staff');
+    setFormRole('housekeeping');
     setFormStatus('Approved');
     setFormEmail('');
     setFormPhone('');
@@ -197,6 +220,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   // Open Edit Modal
   const handleOpenEditModal = (user: UserRecord) => {
+    if (!canManage) {
+      denyManagement();
+      return;
+    }
     // If the account is Default Admin and current logged-in user is NOT Default Admin, block edit
     if (isDefaultAdminAccount(user) && !isCurrentSessionDefaultAdmin) {
       showNotification("Access Denied: No other user can edit the Default Admin's settings.", 'error');
@@ -230,6 +257,11 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const handleSaveUser = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    if (!canManage) {
+      denyManagement();
+      return;
+    }
 
     const name = formName.trim();
     const username = formUsername.trim().toLowerCase().replace(/\s+/g, '_');
@@ -267,45 +299,40 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     }
 
     if (editingUser) {
-      // Update existing user
+      // Update existing user (storage enforces the admin-only boundary)
       const isTargetDefaultAdmin = isDefaultAdminAccount(editingUser);
-      const updated = users.map((u) => {
-        if (u.id === editingUser.id) {
-          return {
-            ...u,
-            name,
-            username: isTargetDefaultAdmin ? u.username : username,
-            password,
-            role: isTargetDefaultAdmin ? 'Admin' : formRole,
-            status: isTargetDefaultAdmin ? 'Approved' : formStatus,
-            email: email || u.email,
-            phone: phone || u.phone,
-          };
-        }
-        return u;
+      const res = updateUserRecord(currentSession, editingUser.id, {
+        name,
+        username: isTargetDefaultAdmin ? editingUser.username : username,
+        password,
+        role: isTargetDefaultAdmin ? 'admin' : formRole,
+        status: isTargetDefaultAdmin ? 'Approved' : formStatus,
+        email: email || editingUser.email,
+        phone: phone || editingUser.phone,
       });
-      setUsers(updated);
-      saveStoredUsers(updated);
+      if (!res.success) {
+        setFormError(res.error || 'Could not save this user.');
+        return;
+      }
+      setUsers(res.users);
       showNotification(`Updated profile for ${name}.`);
     } else {
       // Create new user
-      const newId = `USR-${String(users.length + 1).padStart(3, '0')}`;
-      const newUser: UserRecord = {
-        id: newId,
+      const res = createUserRecord(currentSession, {
         name,
         username,
+        email,
+        phone,
         password,
         role: formRole,
         status: formStatus,
-        email: email || `${username}@bunkhostel.in`,
-        phone: phone || '+91 98765 00000',
-        createdAt: new Date().toISOString().split('T')[0],
-        approvedAt: new Date().toISOString().split('T')[0],
         approvedBy: currentSession.name,
-      };
-      const updated = [newUser, ...users];
-      setUsers(updated);
-      saveStoredUsers(updated);
+      });
+      if (!res.success) {
+        setFormError(res.error || 'Could not create this user.');
+        return;
+      }
+      setUsers(res.users);
       showNotification(`Created new user ID for ${name}.`);
     }
 
@@ -314,46 +341,55 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   // Toggle user status between Active/Approved and Inactive
   const handleToggleStatus = (userId: string) => {
+    if (!canManage) {
+      denyManagement();
+      return;
+    }
     const targetUser = users.find((u) => u.id === userId);
     if (targetUser && isDefaultAdminAccount(targetUser)) {
       showNotification('Default Admin account is protected and cannot be deactivated.', 'error');
       return;
     }
 
-    const updated = users.map((u) => {
-      if (u.id === userId) {
-        const newStatus = u.status === 'Inactive' ? 'Approved' : 'Inactive';
-        return { ...u, status: newStatus as any };
-      }
-      return u;
+    const res = updateUserRecord(currentSession, userId, {
+      status: targetUser?.status === 'Inactive' ? 'Approved' : 'Inactive',
     });
-    setUsers(updated);
-    saveStoredUsers(updated);
+    if (!res.success) {
+      showNotification(res.error || 'Could not update status.', 'error');
+      return;
+    }
+    setUsers(res.users);
     showNotification('User status updated.');
   };
 
   // Change user role directly from table
   const handleChangeRole = (userId: string, newRole: UserRole) => {
+    if (!canManage) {
+      denyManagement();
+      return;
+    }
     const targetUser = users.find((u) => u.id === userId);
     if (targetUser && isDefaultAdminAccount(targetUser)) {
-      showNotification("Default Admin role is locked to Admin and cannot be changed.", 'error');
+      showNotification('Default Admin role is locked to Admin and cannot be changed.', 'error');
       return;
     }
 
-    const updated = users.map((u) => {
-      if (u.id === userId) {
-        return { ...u, role: newRole };
-      }
-      return u;
-    });
-    setUsers(updated);
-    saveStoredUsers(updated);
-    showNotification(`Role updated to ${newRole}.`);
+    const res = updateUserRecord(currentSession, userId, { role: newRole });
+    if (!res.success) {
+      showNotification(res.error || 'Could not update role.', 'error');
+      return;
+    }
+    setUsers(res.users);
+    showNotification(`Role updated to ${ROLE_LABELS[newRole]}.`);
   };
 
   // Confirm delete user
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
+    if (!canManage) {
+      denyManagement();
+      return;
+    }
 
     if (isDefaultAdminAccount(deleteTarget)) {
       showNotification('Default Admin account is protected and cannot be deleted.', 'error');
@@ -361,9 +397,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       return;
     }
 
-    const updated = users.filter((u) => u.id !== deleteTarget.id);
-    setUsers(updated);
-    saveStoredUsers(updated);
+    const res = deleteUserRecord(currentSession, deleteTarget.id);
+    if (!res.success) {
+      showNotification(res.error || 'Could not delete this user.', 'error');
+      return;
+    }
+    setUsers(res.users);
     showNotification(`Deleted user ${deleteTarget.name}.`, 'info');
     setDeleteTarget(null);
   };
@@ -383,17 +422,14 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   const getRoleBadgeStyle = (role: UserRole) => {
     switch (role) {
-      case 'Admin':
-      case 'Super Admin':
+      case 'admin':
         return 'bg-amber-500/20 text-amber-900 border-amber-500/40 font-black';
-      case 'Manager':
+      case 'manager':
         return 'bg-purple-100 text-purple-900 border-purple-300 font-bold';
-      case 'Housekeeping Supervisor':
+      case 'front_office':
         return 'bg-blue-100 text-blue-900 border-blue-300 font-bold';
-      case 'Housekeeping Staff':
+      case 'housekeeping':
         return 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold';
-      case 'Maintenance':
-        return 'bg-stone-200 text-stone-900 border-stone-300 font-bold';
       default:
         return 'bg-stone-100 text-stone-700 border-stone-200';
     }
@@ -467,15 +503,17 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             </p>
           </div>
 
-          <button
-            type="button"
-            id="btn-create-user-modal"
-            onClick={handleOpenCreateModal}
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-sm shadow-md hover:shadow-lg transition active:scale-95 shrink-0 ring-2 ring-amber-300"
-          >
-            <UserPlus className="w-4 h-4 stroke-[2.5]" />
-            <span>+ Create User ID Directly</span>
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              id="btn-create-user-modal"
+              onClick={handleOpenCreateModal}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-sm shadow-md hover:shadow-lg transition active:scale-95 shrink-0 ring-2 ring-amber-300"
+            >
+              <UserPlus className="w-4 h-4 stroke-[2.5]" />
+              <span>+ Create User ID Directly</span>
+            </button>
+          )}
         </div>
 
         {/* Top KPI Metrics Cards */}
@@ -688,7 +726,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                   <option value="All">All Roles</option>
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r}
+                      {ROLE_LABELS[r]}
                     </option>
                   ))}
                 </select>
@@ -789,7 +827,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                             >
                               {ROLES.map((r) => (
                                 <option key={r} value={r}>
-                                  {r}
+                                  {ROLE_LABELS[r]}
                                 </option>
                               ))}
                             </select>
@@ -968,14 +1006,14 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 onChange={(e) => setSelectedRoleForApproval(e.target.value as UserRole)}
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none"
               >
-                <option value="Admin">Admin (Full Audit & Portal Access)</option>
-                <option value="Manager">Manager (Audit Review & Shift Approvals)</option>
-                <option value="Housekeeping Supervisor">Housekeeping Supervisor (Checklist & Staff Lead)</option>
-                <option value="Housekeeping Staff">Housekeeping Staff (Mobile Checklist App)</option>
-                <option value="Maintenance">Maintenance (Facility Upkeep)</option>
+                {ROLE_ORDER.map((role) => (
+                  <option key={role} value={role}>
+                    {ROLE_LABELS[role]} — {ROLE_DESCRIPTIONS[role]}
+                  </option>
+                ))}
               </select>
               <p className="text-[11px] text-stone-500">
-                Admins and Managers can sign in to the Admin Audit Portal. Staff roles will log in to the Mobile Checklist App.
+                Housekeeping accounts land on the cleanliness form after sign-in; all other roles land on the dashboard.
               </p>
             </div>
 
@@ -1196,7 +1234,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 >
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r}
+                      {ROLE_LABELS[r]}
                     </option>
                   ))}
                 </select>

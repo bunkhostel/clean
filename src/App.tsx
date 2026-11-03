@@ -8,7 +8,7 @@ import {
   TaskItem,
   LocationOption,
   AppScreen,
-  AppMode,
+  AppRoute,
   PropertyId,
   AdminAuthSession,
 } from './types';
@@ -22,6 +22,7 @@ import {
 } from './utils/speechUtils';
 import { createAuditReportFromStaffSubmission } from './utils/auditStorage';
 import { getActiveAdminSession, clearAdminSession } from './utils/userStorage';
+import { canAccessRoute, getDefaultRoute } from './utils/rbac';
 import { Header } from './components/Header';
 import { PropertySelectionView } from './components/PropertySelectionView';
 import { StaffAreaSelectionView } from './components/StaffAreaSelectionView';
@@ -30,12 +31,23 @@ import { IssuesAndRemarks } from './components/IssuesAndRemarks';
 import { ShiftSuccessModal } from './components/ShiftSuccessModal';
 import { SingleFileExportModal } from './components/SingleFileExportModal';
 import { AdminAuditPortal } from './components/AdminAuditPortal';
-import { AdminLoginScreen } from './components/AdminLoginScreen';
+import { EmployeeLoginScreen } from './components/EmployeeLoginScreen';
+
+const PORTAL_ROUTES: AppRoute[] = [
+  'dashboard',
+  'daily-reports',
+  'audit-logs',
+  'quality-scores',
+  'user-management',
+];
 
 export default function App() {
-  // App Mode: Staff Checklist vs Admin Audit Portal
-  const [appMode, setAppMode] = useState<AppMode>('staff');
-  const [adminSession, setAdminSession] = useState<AdminAuthSession | null>(() => getActiveAdminSession());
+  // Every session starts at the Employee Login screen; sessionStorage is the only source of truth.
+  const [session, setSession] = useState<AdminAuthSession | null>(() => getActiveAdminSession());
+  const [route, setRoute] = useState<AppRoute>(() => {
+    const active = getActiveAdminSession();
+    return active ? getDefaultRoute(active.role) : 'login';
+  });
 
   const [language, setLanguage] = useState<Language>('hi-IN');
   const [speechSpeed, setSpeechSpeed] = useState<number>(0.95);
@@ -84,6 +96,40 @@ export default function App() {
   }, []);
 
   const isHindi = language === 'hi-IN';
+
+  // Re-validate the current route whenever the session changes (login, logout, role change).
+  useEffect(() => {
+    setRoute((current) => {
+      if (!session) return 'login';
+      if (current === 'login') return getDefaultRoute(session.role);
+      return canAccessRoute(session.role, current) ? current : getDefaultRoute(session.role);
+    });
+  }, [session]);
+
+  // Client-side route guard: every navigation is checked against the role permission matrix.
+  const navigate = (next: AppRoute) => {
+    if (!session) {
+      setRoute('login');
+      return;
+    }
+    if (next !== 'login' && !canAccessRoute(session.role, next)) {
+      setRoute(getDefaultRoute(session.role));
+      return;
+    }
+    stopSpeaking();
+    setRoute(next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleLogout = () => {
+    stopSpeaking();
+    clearAdminSession();
+    setSession(null);
+    setRoute('login');
+    setSelectedLocation(null);
+    setActiveSection(null);
+    setScreen('property_select');
+  };
 
   // Screen 1: User selects Property (Landlopers, Tapovan, Delhi)
   const handleSelectProperty = (propId: PropertyId) => {
@@ -401,25 +447,28 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // If Admin Portal mode is active, check authentication session
-  if (appMode === 'admin') {
-    if (!adminSession) {
-      return (
-        <AdminLoginScreen
-          onLoginSuccess={(session) => setAdminSession(session)}
-          onSwitchToStaff={() => setAppMode('staff')}
-        />
-      );
-    }
+  // Employee Login is the landing screen. Nothing renders before authentication.
+  if (!session || route === 'login') {
+    return (
+      <EmployeeLoginScreen
+        onLoginSuccess={(nextSession) => {
+          setSession(nextSession);
+          setRoute(getDefaultRoute(nextSession.role));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+    );
+  }
 
+  // Dashboard, reports, audit logs, quality scores and user management.
+  if (PORTAL_ROUTES.includes(route)) {
     return (
       <AdminAuditPortal
-        onSwitchToStaffMode={() => setAppMode('staff')}
-        currentSession={adminSession}
-        onLogout={() => {
-          clearAdminSession();
-          setAdminSession(null);
-        }}
+        currentSession={session}
+        route={route}
+        onNavigate={navigate}
+        onOpenCleanlinessForm={() => navigate('cleanliness-form')}
+        onLogout={handleLogout}
       />
     );
   }
@@ -439,7 +488,11 @@ export default function App() {
         completedCount={currentDoneCount}
         totalCount={currentTasks.length}
         isSpeaking={speakingId !== null}
-        onSwitchToAdmin={() => setAppMode('admin')}
+        session={session}
+        onLogout={handleLogout}
+        onOpenDashboard={
+          canAccessRoute(session.role, 'dashboard') ? () => navigate('dashboard') : undefined
+        }
         activePropertyId={selectedPropertyId}
         onChangeProperty={handleBackToPropertySelect}
       />

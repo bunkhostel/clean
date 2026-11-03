@@ -1,4 +1,5 @@
 import { UserRecord, UserRole, UserStatus, AdminAuthSession } from '../types';
+import { hasPermission, migrateLegacyRole } from './rbac';
 
 /**
  * Requirement 1: Default Admin Account
@@ -13,7 +14,7 @@ export const DEFAULT_ADMIN_CREDENTIALS = {
   email: 'admin@bunkhostel.in',
   username: 'admin@bunkhostel.in',
   password: 'admin@123',
-  role: 'Admin' as UserRole,
+  role: 'admin' as UserRole,
   status: 'Approved' as UserStatus,
 };
 
@@ -46,7 +47,7 @@ export const INITIAL_USER_RECORDS: UserRecord[] = [
     email: 'admin@bunkhostel.in',
     phone: '+91 98765 43210',
     password: 'admin@123',
-    role: 'Admin',
+    role: 'admin',
     status: 'Approved',
     createdAt: '2026-01-01',
     lastLogin: '2026-08-30 08:30',
@@ -60,7 +61,7 @@ export const INITIAL_USER_RECORDS: UserRecord[] = [
     email: 'subhash@bunkhostel.in',
     phone: '+91 98123 45678',
     password: 'Subhash@2026!',
-    role: 'Manager',
+    role: 'manager',
     status: 'Approved',
     createdAt: '2026-02-15',
     lastLogin: '2026-08-29 16:45',
@@ -69,12 +70,26 @@ export const INITIAL_USER_RECORDS: UserRecord[] = [
   },
   {
     id: 'USR-003',
+    name: 'Anjali Nair',
+    username: 'anjali_fo',
+    email: 'anjali@bunkhostel.in',
+    phone: '+91 99880 11224',
+    password: 'Anjali@2026!',
+    role: 'front_office',
+    status: 'Approved',
+    createdAt: '2026-02-20',
+    lastLogin: '2026-08-30 06:50',
+    approvedAt: '2026-02-20',
+    approvedBy: 'Mohit',
+  },
+  {
+    id: 'USR-004',
     name: 'Jasvir Singh',
     username: 'jasvir_hk',
     email: 'jasvir@bunkhostel.in',
     phone: '+91 98987 65432',
     password: 'Jasvir@2026!',
-    role: 'Housekeeping Supervisor',
+    role: 'housekeeping',
     status: 'Approved',
     createdAt: '2026-03-01',
     lastLogin: '2026-08-30 07:15',
@@ -82,13 +97,13 @@ export const INITIAL_USER_RECORDS: UserRecord[] = [
     approvedBy: 'Mohit',
   },
   {
-    id: 'USR-004',
+    id: 'USR-005',
     name: 'Rajeshwari Sharma',
     username: 'rajeshwari_hk',
     email: 'rajeshwari@bunkhostel.in',
     phone: '+91 97112 33445',
     password: 'Rajeshwari@2026!',
-    role: 'Housekeeping Staff',
+    role: 'housekeeping',
     status: 'Approved',
     createdAt: '2026-03-10',
     lastLogin: '2026-08-29 18:20',
@@ -103,7 +118,7 @@ export const INITIAL_USER_RECORDS: UserRecord[] = [
     email: 'aakash.verma@gmail.com',
     phone: '+91 98234 11223',
     password: 'Password@123',
-    role: 'Housekeeping Staff',
+    role: 'housekeeping',
     status: 'Pending Approval',
     createdAt: '2026-08-30',
   },
@@ -114,7 +129,7 @@ export const INITIAL_USER_RECORDS: UserRecord[] = [
     email: 'pooja.rawat@yahoo.com',
     phone: '+91 94567 89012',
     password: 'Pooja@Pass2026',
-    role: 'Housekeeping Staff',
+    role: 'housekeeping',
     status: 'Pending Approval',
     createdAt: '2026-08-31',
   },
@@ -125,7 +140,7 @@ export const INITIAL_USER_RECORDS: UserRecord[] = [
     email: 'vikram.mehta@gmail.com',
     phone: '+91 91234 56780',
     password: 'Vikram@2026!',
-    role: 'Maintenance',
+    role: 'housekeeping',
     status: 'Approved',
     createdAt: '2026-04-05',
     lastLogin: '2026-08-28 14:10',
@@ -135,7 +150,7 @@ export const INITIAL_USER_RECORDS: UserRecord[] = [
 ];
 
 /**
- * Loads user records from localStorage or defaults to INITIAL_USER_RECORDS
+ * Loads user records from localStorage, upgrading roles written by earlier builds.
  */
 export function getStoredUsers(): UserRecord[] {
   if (typeof window === 'undefined') return INITIAL_USER_RECORDS;
@@ -146,16 +161,28 @@ export function getStoredUsers(): UserRecord[] {
       return INITIAL_USER_RECORDS;
     }
     const parsed: UserRecord[] = JSON.parse(raw);
-    
-    // Ensure default admin always exists and is approved
-    const hasDefaultAdmin = parsed.some(
+    let changed = false;
+
+    const migrated = parsed.map((u) => {
+      const role = migrateLegacyRole(u.role);
+      if (role !== u.role) {
+        changed = true;
+        return { ...u, role };
+      }
+      return u;
+    });
+
+    const hasDefaultAdmin = migrated.some(
       u => (u.email?.toLowerCase() === DEFAULT_ADMIN_CREDENTIALS.email.toLowerCase() || u.username === DEFAULT_ADMIN_CREDENTIALS.username)
     );
     if (!hasDefaultAdmin) {
-      parsed.unshift(INITIAL_USER_RECORDS[0]);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(parsed));
+      migrated.unshift(INITIAL_USER_RECORDS[0]);
+      changed = true;
     }
-    return parsed;
+    if (changed) {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(migrated));
+    }
+    return migrated;
   } catch {
     return INITIAL_USER_RECORDS;
   }
@@ -171,6 +198,11 @@ export function saveStoredUsers(users: UserRecord[]): void {
   } catch (err) {
     console.error('Failed to save users:', err);
   }
+}
+
+/** Only the admin role may create, edit or delete accounts. */
+export function canManageUsers(session: { role: UserRole } | null | undefined): boolean {
+  return Boolean(session && hasPermission(session.role, 'manage_users'));
 }
 
 /**
@@ -214,7 +246,7 @@ export function registerNewUser(data: {
     email: cleanEmail,
     phone: cleanPhone,
     password: cleanPass,
-    role: 'Housekeeping Staff', // default placeholder until approved by admin
+    role: 'housekeeping', // pending accounts start at the lowest privilege until an admin assigns a role
     status: 'Pending Approval',
     createdAt: new Date().toISOString().split('T')[0],
   };
@@ -225,11 +257,21 @@ export function registerNewUser(data: {
   return { success: true, user: newUser };
 }
 
+const ADMIN_ONLY_ERROR = 'Access denied: only an admin can manage user accounts.';
+
 /**
- * Requirement 4: Approval & Role Assignment
+ * Requirement 4: Approval & Role Assignment (admin only)
  */
-export function approveUserRequest(userId: string, assignedRole: UserRole, approvedBy: string): { success: boolean; users: UserRecord[] } {
+export function approveUserRequest(
+  actor: { role: UserRole } | null,
+  userId: string,
+  assignedRole: UserRole,
+  approvedBy: string
+): { success: boolean; error?: string; users: UserRecord[] } {
   const users = getStoredUsers();
+  if (!canManageUsers(actor)) {
+    return { success: false, error: ADMIN_ONLY_ERROR, users };
+  }
   const updated = users.map(u => {
     if (u.id === userId) {
       return {
@@ -247,11 +289,111 @@ export function approveUserRequest(userId: string, assignedRole: UserRole, appro
 }
 
 /**
- * Reject user registration request
+ * Reject user registration request (admin only)
  */
-export function rejectUserRequest(userId: string): { success: boolean; users: UserRecord[] } {
+export function rejectUserRequest(
+  actor: { role: UserRole } | null,
+  userId: string
+): { success: boolean; error?: string; users: UserRecord[] } {
   const users = getStoredUsers();
+  if (!canManageUsers(actor)) {
+    return { success: false, error: ADMIN_ONLY_ERROR, users };
+  }
   const updated = users.filter(u => u.id !== userId);
+  saveStoredUsers(updated);
+  return { success: true, users: updated };
+}
+
+export interface NewUserInput {
+  name: string;
+  username: string;
+  email: string;
+  phone: string;
+  password: string;
+  role: UserRole;
+  status: UserStatus;
+  approvedBy: string;
+}
+
+/** Create an account directly (admin only). */
+export function createUserRecord(
+  actor: { role: UserRole } | null,
+  input: NewUserInput
+): { success: boolean; error?: string; users: UserRecord[]; user?: UserRecord } {
+  const users = getStoredUsers();
+  if (!canManageUsers(actor)) {
+    return { success: false, error: ADMIN_ONLY_ERROR, users };
+  }
+  const username = input.username.toLowerCase();
+  const duplicate = users.find(
+    (u) => u.username.toLowerCase() === username || (input.email && u.email.toLowerCase() === input.email.toLowerCase())
+  );
+  if (duplicate) {
+    return { success: false, error: `Account with username/email is already assigned to ${duplicate.name}.`, users };
+  }
+
+  const newUser: UserRecord = {
+    id: `USR-${String(users.length + 1).padStart(3, '0')}`,
+    name: input.name,
+    username,
+    email: input.email || `${username}@bunkhostel.in`,
+    phone: input.phone || '+91 98765 00000',
+    password: input.password,
+    role: input.role,
+    status: input.status,
+    createdAt: new Date().toISOString().split('T')[0],
+    approvedAt: new Date().toISOString().split('T')[0],
+    approvedBy: input.approvedBy,
+  };
+  const updated = [newUser, ...users];
+  saveStoredUsers(updated);
+  return { success: true, users: updated, user: newUser };
+}
+
+/** Update an existing account (admin only). */
+export function updateUserRecord(
+  actor: { role: UserRole } | null,
+  userId: string,
+  patch: Partial<Pick<UserRecord, 'name' | 'username' | 'email' | 'phone' | 'password' | 'role' | 'status'>>
+): { success: boolean; error?: string; users: UserRecord[] } {
+  const users = getStoredUsers();
+  if (!canManageUsers(actor)) {
+    return { success: false, error: ADMIN_ONLY_ERROR, users };
+  }
+
+  const target = users.find((u) => u.id === userId);
+  if (!target) {
+    return { success: false, error: 'User no longer exists.', users };
+  }
+
+  // The default admin account keeps its role, status and username.
+  const isProtected = isDefaultAdminAccount(target);
+  const safePatch = isProtected
+    ? { ...patch, role: target.role, status: 'Approved' as UserStatus, username: target.username }
+    : patch;
+
+  const updated = users.map((u) => (u.id === userId ? { ...u, ...safePatch } : u));
+  saveStoredUsers(updated);
+  return { success: true, users: updated };
+}
+
+/** Delete an account (admin only). Default admin is protected. */
+export function deleteUserRecord(
+  actor: { role: UserRole } | null,
+  userId: string
+): { success: boolean; error?: string; users: UserRecord[] } {
+  const users = getStoredUsers();
+  if (!canManageUsers(actor)) {
+    return { success: false, error: ADMIN_ONLY_ERROR, users };
+  }
+  const target = users.find((u) => u.id === userId);
+  if (!target) {
+    return { success: false, error: 'User no longer exists.', users };
+  }
+  if (isDefaultAdminAccount(target)) {
+    return { success: false, error: 'Default Admin account is protected and cannot be deleted.', users };
+  }
+  const updated = users.filter((u) => u.id !== userId);
   saveStoredUsers(updated);
   return { success: true, users: updated };
 }
@@ -266,7 +408,10 @@ export function getActiveAdminSession(): AdminAuthSession | null {
     const token = sessionStorage.getItem(SESSION_AUTH_TOKEN_KEY);
     const userRaw = sessionStorage.getItem(SESSION_AUTH_USER_KEY);
     if (!token || !userRaw) return null;
-    return JSON.parse(userRaw) as AdminAuthSession;
+    const session = JSON.parse(userRaw) as AdminAuthSession;
+    // Sessions created before the role hierarchy existed get upgraded on read.
+    session.role = migrateLegacyRole(session.role);
+    return session;
   } catch {
     return null;
   }
@@ -301,7 +446,8 @@ export function destroyAdminSession(): void {
 export const clearAdminSession = destroyAdminSession;
 
 /**
- * Requirement 1 & 5: Validates credentials and checks Admin / Manager privileges
+ * Requirement 1 & 5: Validates credentials for every employee role.
+ * Role authorization is handled by the route guards, not here.
  */
 export function authenticateUser(
   identifier: string,
@@ -374,17 +520,6 @@ export function authenticateUser(
     };
   }
 
-  // Role verification: Admin or Manager only for Admin Portal
-  const isAdminOrManager =
-    found.role === 'Admin' || found.role === 'Super Admin' || found.role === 'Manager';
-
-  if (!isAdminOrManager) {
-    return {
-      success: false,
-      error: `Access restricted. Your assigned role is "${found.role}". Only Admin and Manager accounts can access the Admin Portal. Please use the Staff Checklist app.`,
-    };
-  }
-
   // Generate session token
   const token = `AUTH_TOKEN_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   const session: AdminAuthSession = {
@@ -392,7 +527,7 @@ export function authenticateUser(
     username: found.username,
     name: found.name,
     email: found.email,
-    role: found.role,
+    role: migrateLegacyRole(found.role),
     loginTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   };
 
@@ -403,4 +538,3 @@ export function authenticateUser(
   setAdminSession(session);
   return { success: true, session };
 }
-

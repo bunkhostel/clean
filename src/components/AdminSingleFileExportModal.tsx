@@ -509,7 +509,6 @@ export const AdminSingleFileExportModal: React.FC<AdminSingleFileExportModalProp
       <li class="nav-item active">📋 Daily Reports</li>
       <li class="nav-item">🛡️ Audit Logs</li>
       <li class="nav-item">📊 Quality Analytics</li>
-      <li class="nav-item">⚙️ Settings</li>
     </ul>
 
     <div class="sidebar-footer">

@@ -123,11 +123,10 @@ export const StandaloneUserManagementModal: React.FC<StandaloneUserManagementMod
         <div>
           <label class="block font-bold text-stone-700 mb-1">Role</label>
           <select id="modal-role" class="w-full px-3 py-2 bg-stone-50 border rounded-lg font-bold">
-            <option>Super Admin</option>
-            <option>Manager</option>
-            <option>Housekeeping Supervisor</option>
-            <option selected>Housekeeping Staff</option>
-            <option>Maintenance</option>
+            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
+            <option value="front_office">Front Office</option>
+            <option selected value="housekeeping">Housekeeping</option>
           </select>
         </div>
         <div class="flex justify-end gap-2 pt-2">

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  ShieldCheck,
   Lock,
   User,
   Eye,
@@ -10,27 +9,22 @@ import {
   AlertCircle,
   Clock,
   CheckCircle2,
-  Smartphone,
   Mail,
   Phone,
   UserPlus,
-  Sparkles,
 } from 'lucide-react';
 import {
   authenticateUser,
   registerNewUser,
-  DEFAULT_ADMIN_CREDENTIALS,
 } from '../utils/userStorage';
 import { AdminAuthSession } from '../types';
 
-interface AdminLoginScreenProps {
+interface EmployeeLoginScreenProps {
   onLoginSuccess: (session: AdminAuthSession) => void;
-  onSwitchToStaff: () => void;
 }
 
-export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
+export const EmployeeLoginScreen: React.FC<EmployeeLoginScreenProps> = ({
   onLoginSuccess,
-  onSwitchToStaff,
 }) => {
   // Mode: 'login' or 'register'
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -139,10 +133,10 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
             B
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-            Bunk Hostel Portal
+            Bunk Hostel
           </h1>
           <p className="text-xs sm:text-sm text-stone-400 font-medium">
-            Admin Audit & User Management Portal
+            Employee Login · Housekeeping, Front Office, Management & Admin
           </p>
         </div>
 
@@ -164,7 +158,7 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
               }`}
             >
               <Lock className="w-3.5 h-3.5" />
-              <span>Admin Login</span>
+              <span>Employee Login</span>
             </button>
 
             <button
@@ -191,7 +185,7 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-stone-800">
                 <div>
-                  <h2 className="text-sm font-bold text-white leading-tight">Admin & Manager Sign In</h2>
+                  <h2 className="text-sm font-bold text-white leading-tight">Employee Sign In</h2>
                   <p className="text-[11px] text-stone-400">Enter your approved credentials</p>
                 </div>
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
@@ -273,7 +267,7 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
                     </span>
                   ) : (
                     <>
-                      <span>Sign In to Admin Portal</span>
+                      <span>Sign In</span>
                       <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                     </>
                   )}
@@ -292,7 +286,7 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
                   }}
                   className="text-xs text-stone-400 hover:text-amber-300 transition"
                 >
-                  New staff or manager? <strong className="text-amber-400 underline">Register here</strong>
+                  New employee? <strong className="text-amber-400 underline">Request access</strong>
                 </button>
               </div>
             </div>
@@ -467,18 +461,6 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Bottom Switcher: Back to Staff Checklist */}
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={onSwitchToStaff}
-            className="inline-flex items-center gap-2 text-xs font-bold text-stone-400 hover:text-amber-400 transition"
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>← Switch to Staff Housekeeping App</span>
-          </button>
         </div>
       </div>
     </div>

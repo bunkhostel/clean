@@ -1,7 +1,5 @@
 export type Language = 'hi-IN' | 'en-IN';
 
-export type AppMode = 'staff' | 'admin';
-
 export type PropertyId = 'landlopers' | 'tapovan' | 'delhi' | 'rishikesh';
 
 export type FormType =
@@ -22,6 +20,27 @@ export type AppScreen =
   | 'section_10';
 
 export type AuditStatus = 'Pending' | 'Verified' | 'Discrepancy';
+
+/**
+ * Role hierarchy, highest privilege first: admin > manager > front_office > housekeeping.
+ */
+export type UserRole = 'admin' | 'manager' | 'front_office' | 'housekeeping';
+
+export type Permission =
+  | 'submit_cleanliness_form'
+  | 'view_daily_reports'
+  | 'view_audit_logs'
+  | 'view_quality_scores'
+  | 'manage_users';
+
+export type AppRoute =
+  | 'login'
+  | 'cleanliness-form'
+  | 'dashboard'
+  | 'daily-reports'
+  | 'audit-logs'
+  | 'quality-scores'
+  | 'user-management';
 
 export interface PropertyDef {
   id: PropertyId;
@@ -143,14 +162,6 @@ export interface AuditReportRecord {
   auditedBy?: string;
   auditedAt?: string;
 }
-
-export type UserRole =
-  | 'Super Admin'
-  | 'Admin'
-  | 'Manager'
-  | 'Housekeeping Supervisor'
-  | 'Housekeeping Staff'
-  | 'Maintenance';
 
 export type UserStatus = 'Approved' | 'Pending Approval' | 'Rejected' | 'Active' | 'Inactive';
 
